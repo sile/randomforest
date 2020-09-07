@@ -26,37 +26,8 @@ impl DecisionTreeRegressor {
         Self { tree }
     }
 
-    #[cfg(test)]
     pub fn predict(&self, xs: &[f64]) -> f64 {
         self.tree.predict(xs)
-    }
-
-    pub fn fold<InternalT, InternalF, LeafT, LeafF>(
-        &self,
-        internal_init: InternalT,
-        mut internal_f: InternalF,
-        leaf_init: LeafT,
-        mut leaf_f: LeafF,
-    ) -> LeafT
-    where
-        InternalF: FnMut(InternalT, &SplitPoint) -> (InternalT, InternalT),
-        LeafF: FnMut(LeafT, InternalT, f64) -> LeafT,
-    {
-        let mut leaf_acc = leaf_init;
-        let mut stack = vec![(&self.tree.root, internal_init)];
-        while let Some((node, internal_acc)) = stack.pop() {
-            match node {
-                Node::Leaf { value } => {
-                    leaf_acc = leaf_f(leaf_acc, internal_acc, *value);
-                }
-                Node::Internal { children } => {
-                    let (acc_l, acc_r) = internal_f(internal_acc, &children.split);
-                    stack.push((&children.left, acc_l));
-                    stack.push((&children.right, acc_r));
-                }
-            }
-        }
-        leaf_acc
     }
 }
 
@@ -77,7 +48,6 @@ impl Tree {
         Self { root }
     }
 
-    #[cfg(test)]
     fn predict(&self, xs: &[f64]) -> f64 {
         self.root.predict(xs)
     }
@@ -90,7 +60,6 @@ pub enum Node {
 }
 
 impl Node {
-    #[cfg(test)]
     fn predict(&self, xs: &[f64]) -> f64 {
         match self {
             Self::Leaf { value } => *value,

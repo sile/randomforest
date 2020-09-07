@@ -1,5 +1,4 @@
 use crate::decision_tree::{DecisionTreeOptions, DecisionTreeRegressor};
-#[cfg(test)]
 use crate::functions;
 use crate::table::Table;
 use rand::rngs::StdRng;
@@ -49,7 +48,7 @@ impl RandomForestOptions {
 impl Default for RandomForestOptions {
     fn default() -> Self {
         Self {
-            trees: NonZeroUsize::new(100).expect("never fails"),
+            trees: NonZeroUsize::new(100).expect("unreachable"),
             max_features: None,
             seed: None,
         }
@@ -70,6 +69,7 @@ impl RandomForestOptions {
     }
 }
 
+// TODO: Support categorical features
 #[derive(Debug)]
 pub struct RandomForestRegressor {
     forest: Vec<DecisionTreeRegressor>,
@@ -96,6 +96,10 @@ impl RandomForestRegressor {
         Self { forest }
     }
 
+    pub fn predict(&self, xs: &[f64]) -> f64 {
+        functions::mean(self.forest.iter().map(|tree| tree.predict(xs)))
+    }
+
     fn decide_max_features(table: &Table, options: &RandomForestOptions) -> usize {
         if let Some(n) = options.max_features {
             n.get()
@@ -114,15 +118,6 @@ impl RandomForestRegressor {
             max_features: Some(max_features),
         };
         DecisionTreeRegressor::fit(rng, table, tree_options)
-    }
-
-    pub fn into_trees(self) -> Vec<DecisionTreeRegressor> {
-        self.forest
-    }
-
-    #[cfg(test)]
-    fn predict(&self, xs: &[f64]) -> f64 {
-        functions::mean(self.forest.iter().map(|tree| tree.predict(xs)))
     }
 }
 

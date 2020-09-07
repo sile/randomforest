@@ -1,12 +1,7 @@
-pub mod decision_tree;
-pub mod functions;
-pub mod random_forest;
-pub mod table;
+pub use self::random_forest::{RandomForestOptions, RandomForestRegressor};
+pub use self::table::{Table, TableError};
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+mod decision_tree;
+mod functions;
+mod random_forest;
+mod table;
