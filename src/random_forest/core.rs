@@ -1,5 +1,5 @@
 use crate::criterion::Criterion;
-use crate::decision_tree::{DecisionTreeOptions, DecisionTreeRegressor};
+use crate::decision_tree::{DecisionTree, DecisionTreeOptions};
 use crate::table::Table;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -79,13 +79,13 @@ impl RandomForestOptions {
 
         max_features: usize,
         table: &Table,
-    ) -> DecisionTreeRegressor {
+    ) -> DecisionTree {
         let table = table.bootstrap_sample(rng);
         let tree_options = DecisionTreeOptions {
             max_features: Some(max_features),
             is_regression,
         };
-        DecisionTreeRegressor::fit(rng, criterion, table, tree_options)
+        DecisionTree::fit(rng, criterion, table, tree_options)
     }
 
     fn tree_rngs(&self) -> impl Iterator<Item = StdRng> {
@@ -122,7 +122,7 @@ impl Default for RandomForestOptions {
 
 #[derive(Debug)]
 pub struct RandomForest {
-    forest: Vec<DecisionTreeRegressor>,
+    forest: Vec<DecisionTree>,
 }
 
 impl RandomForest {

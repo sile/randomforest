@@ -14,11 +14,11 @@ pub struct DecisionTreeOptions {
 }
 
 #[derive(Debug)]
-pub struct DecisionTreeRegressor {
+pub struct DecisionTree {
     tree: Tree,
 }
 
-impl DecisionTreeRegressor {
+impl DecisionTree {
     pub fn fit<R: Rng + ?Sized, T: Criterion>(
         rng: &mut R,
         criterion: T,
@@ -200,8 +200,7 @@ mod tests {
         }
         let table = table_builder.build()?;
 
-        let regressor =
-            DecisionTreeRegressor::fit(&mut rand::thread_rng(), Mse, table, Default::default());
+        let regressor = DecisionTree::fit(&mut rand::thread_rng(), Mse, table, Default::default());
         assert_eq!(regressor.predict(&features[train_len]), 46.0);
         assert_eq!(regressor.predict(&features[train_len + 1]), 52.0);
 
