@@ -12,6 +12,7 @@ pub struct RandomForestOptions {
     trees: NonZeroUsize,
     max_features: Option<NonZeroUsize>,
     seed: Option<u64>,
+    parallel: bool,
 }
 
 impl RandomForestOptions {
@@ -23,7 +24,7 @@ impl RandomForestOptions {
     /// Sets the random generator seed.
     ///
     /// The default value is random.
-    pub fn seed(mut self, seed: u64) -> Self {
+    pub fn seed(&mut self, seed: u64) -> &mut Self {
         self.seed = Some(seed);
         self
     }
@@ -31,7 +32,7 @@ impl RandomForestOptions {
     /// Sets the number of decision trees.
     ///
     /// The default value is `100`.
-    pub fn trees(mut self, trees: NonZeroUsize) -> Self {
+    pub fn trees(&mut self, trees: NonZeroUsize) -> &mut Self {
         self.trees = trees;
         self
     }
@@ -39,73 +40,35 @@ impl RandomForestOptions {
     /// Sets the number of maximum candidate features used to determine each decision tree node.
     ///
     /// The default value is `sqrt(the number of features)`.
-    pub fn max_features(mut self, max: NonZeroUsize) -> Self {
+    pub fn max_features(&mut self, max: NonZeroUsize) -> &mut Self {
         self.max_features = Some(max);
         self
     }
-}
 
-impl Default for RandomForestOptions {
-    fn default() -> Self {
-        Self {
-            trees: NonZeroUsize::new(100).expect("unreachable"),
-            max_features: None,
-            seed: None,
-        }
-    }
-}
-
-impl RandomForestOptions {
-    fn tree_rngs(&self) -> impl Iterator<Item = StdRng> {
-        let seed_u64 = self.seed.unwrap_or_else(|| rand::thread_rng().gen());
-        let mut seed = [0u8; 32];
-        (&mut seed[0..8]).copy_from_slice(&seed_u64.to_be_bytes()[..]);
-        let mut rng = StdRng::from_seed(seed);
-        (0..self.trees.get()).map(move |_| {
-            let mut seed = [0u8; 32];
-            rng.fill(&mut seed);
-            StdRng::from_seed(seed)
-        })
-    }
-}
-
-// TODO: Support categorical features
-#[derive(Debug)]
-pub struct RandomForestRegressor {
-    forest: Vec<DecisionTreeRegressor>,
-}
-
-impl RandomForestRegressor {
-    pub fn fit(table: Table, options: RandomForestOptions) -> Self {
-        let max_features = Self::decide_max_features(&table, &options);
-        let forest = options
-            .tree_rngs()
-            .map(|mut rng| Self::tree_fit(&mut rng, &table, max_features))
-            .collect::<Vec<_>>();
-        Self { forest }
+    /// Enables parallel executions of `RandomForest::fit`.
+    ///
+    /// This library use `rayon` for parallel execution.
+    /// Please see [the rayon document](https://docs.rs/rayon) if you want to configure the behavior
+    /// (e.g., the number of worker threads).
+    pub fn parallel(&mut self) -> &mut Self {
+        self.parallel = true;
+        self
     }
 
-    pub fn fit_parallel(table: Table, options: RandomForestOptions) -> Self {
-        let max_features = Self::decide_max_features(&table, &options);
-        let forest = options
-            .tree_rngs()
-            .collect::<Vec<_>>()
-            .into_par_iter()
-            .map(|mut rng| Self::tree_fit(&mut rng, &table, max_features))
-            .collect::<Vec<_>>();
-        Self { forest }
-    }
-
-    pub fn predict(&self, xs: &[f64]) -> f64 {
-        functions::mean(self.forest.iter().map(|tree| tree.predict(xs)))
-    }
-
-    fn decide_max_features(table: &Table, options: &RandomForestOptions) -> usize {
-        if let Some(n) = options.max_features {
-            n.get()
+    pub fn fit(&self, table: Table) -> RandomForest {
+        let max_features = self.decide_max_features(&table);
+        let forest = if self.parallel {
+            self.tree_rngs()
+                .collect::<Vec<_>>()
+                .into_par_iter()
+                .map(|mut rng| Self::tree_fit(&mut rng, &table, max_features))
+                .collect::<Vec<_>>()
         } else {
-            (table.features_len() as f64).sqrt().ceil() as usize
-        }
+            self.tree_rngs()
+                .map(|mut rng| Self::tree_fit(&mut rng, &table, max_features))
+                .collect::<Vec<_>>()
+        };
+        RandomForest { forest }
     }
 
     fn tree_fit<R: Rng + ?Sized>(
@@ -118,6 +81,54 @@ impl RandomForestRegressor {
             max_features: Some(max_features),
         };
         DecisionTreeRegressor::fit(rng, table, tree_options)
+    }
+
+    fn tree_rngs(&self) -> impl Iterator<Item = StdRng> {
+        let seed_u64 = self.seed.unwrap_or_else(|| rand::thread_rng().gen());
+        let mut seed = [0u8; 32];
+        (&mut seed[0..8]).copy_from_slice(&seed_u64.to_be_bytes()[..]);
+        let mut rng = StdRng::from_seed(seed);
+        (0..self.trees.get()).map(move |_| {
+            let mut seed = [0u8; 32];
+            rng.fill(&mut seed);
+            StdRng::from_seed(seed)
+        })
+    }
+
+    fn decide_max_features(&self, table: &Table) -> usize {
+        if let Some(n) = self.max_features {
+            n.get()
+        } else {
+            (table.features_len() as f64).sqrt().ceil() as usize
+        }
+    }
+}
+
+impl Default for RandomForestOptions {
+    fn default() -> Self {
+        Self {
+            trees: NonZeroUsize::new(100).expect("unreachable"),
+            max_features: None,
+            seed: None,
+            parallel: false,
+        }
+    }
+}
+
+// TODO: Support categorical features
+// TODO: Support classifier
+#[derive(Debug)]
+pub struct RandomForest {
+    forest: Vec<DecisionTreeRegressor>,
+}
+
+impl RandomForest {
+    pub fn fit(table: Table) -> Self {
+        RandomForestOptions::default().fit(table)
+    }
+
+    pub fn predict(&self, xs: &[f64]) -> f64 {
+        functions::mean(self.forest.iter().map(|tree| tree.predict(xs)))
     }
 }
 

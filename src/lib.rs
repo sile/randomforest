@@ -1,4 +1,4 @@
-pub use self::random_forest::{RandomForestOptions, RandomForestRegressor};
+pub use self::random_forest::{RandomForest, RandomForestOptions};
 pub use self::table::{ColumnType, Table, TableBuilder, TableError};
 
 mod decision_tree;
