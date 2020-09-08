@@ -1,3 +1,4 @@
+use crate::criterion::Criterion;
 use crate::functions;
 use crate::table::Table;
 use rand::seq::SliceRandom as _;
@@ -9,6 +10,7 @@ const MAX_DEPTH: usize = 64;
 #[derive(Debug, Clone, Default)]
 pub struct DecisionTreeOptions {
     pub max_features: Option<usize>,
+    pub is_regression: bool,
 }
 
 #[derive(Debug)]
@@ -17,8 +19,13 @@ pub struct DecisionTreeRegressor {
 }
 
 impl DecisionTreeRegressor {
-    pub fn fit<R: Rng + ?Sized>(rng: &mut R, table: Table, options: DecisionTreeOptions) -> Self {
-        let tree = Tree::fit(rng, table, options);
+    pub fn fit<R: Rng + ?Sized, T: Criterion>(
+        rng: &mut R,
+        criterion: T,
+        table: Table,
+        options: DecisionTreeOptions,
+    ) -> Self {
+        let tree = Tree::fit(rng, criterion, table, options);
         Self { tree }
     }
 
@@ -33,13 +40,19 @@ pub struct Tree {
 }
 
 impl Tree {
-    pub fn fit<R: Rng + ?Sized>(
+    pub fn fit<R: Rng + ?Sized, T: Criterion>(
         rng: &mut R,
+        criterion: T,
         mut table: Table,
         options: DecisionTreeOptions,
     ) -> Self {
         let max_features = options.max_features.unwrap_or_else(|| table.features_len());
-        let mut builder = NodeBuilder { rng, max_features };
+        let mut builder = NodeBuilder {
+            rng,
+            max_features,
+            is_regression: options.is_regression,
+            criterion,
+        };
         let root = builder.build(&mut table, 1);
         Self { root }
     }
@@ -84,19 +97,21 @@ pub struct SplitPoint {
 }
 
 #[derive(Debug)]
-struct NodeBuilder<R> {
+struct NodeBuilder<R, T> {
     rng: R,
     max_features: usize,
+    is_regression: bool,
+    criterion: T,
 }
 
-impl<R: Rng> NodeBuilder<R> {
+impl<R: Rng, T: Criterion> NodeBuilder<R, T> {
     fn build(&mut self, table: &mut Table, depth: usize) -> Node {
         if table.rows_len() < MIN_SAMPLES_SPLIT || depth > MAX_DEPTH {
-            let value = functions::mean(table.target());
+            let value = self.average(table.target());
             return Node::Leaf { value };
         }
 
-        let impurity = functions::mse(table.target());
+        let impurity = self.criterion.calculate(table.target());
         let valid_columns = (0..table.features_len())
             .filter(|&i| !table.column(i).any(|f| f.is_nan()))
             .collect::<Vec<_>>();
@@ -107,8 +122,8 @@ impl<R: Rng> NodeBuilder<R> {
         for &column in valid_columns.choose_multiple(&mut self.rng, max_features) {
             table.sort_rows_by_column(column);
             for (row, threshold) in table.thresholds(column) {
-                let impurity_l = functions::mse(table.target().take(row));
-                let impurity_r = functions::mse(table.target().skip(row));
+                let impurity_l = self.criterion.calculate(table.target().take(row));
+                let impurity_r = self.criterion.calculate(table.target().skip(row));
                 let ratio_l = row as f64 / table.rows_len() as f64;
                 let ratio_r = 1.0 - ratio_l;
 
@@ -124,7 +139,7 @@ impl<R: Rng> NodeBuilder<R> {
             let children = self.build_children(table, split, depth);
             Node::Internal { children }
         } else {
-            let value = functions::mean(table.target());
+            let value = self.average(table.target());
             Node::Leaf { value }
         }
     }
@@ -139,11 +154,20 @@ impl<R: Rng> NodeBuilder<R> {
             table.with_split(split_row, |table| Box::new(self.build(table, depth + 1)));
         Children { split, left, right }
     }
+
+    fn average(&self, ys: impl Iterator<Item = f64>) -> f64 {
+        if self.is_regression {
+            functions::mean(ys)
+        } else {
+            functions::most_frequent(ys)
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::criterion::Mse;
     use crate::TableBuilder;
     use rand;
 
@@ -177,7 +201,7 @@ mod tests {
         let table = table_builder.build()?;
 
         let regressor =
-            DecisionTreeRegressor::fit(&mut rand::thread_rng(), table, Default::default());
+            DecisionTreeRegressor::fit(&mut rand::thread_rng(), Mse, table, Default::default());
         assert_eq!(regressor.predict(&features[train_len]), 46.0);
         assert_eq!(regressor.predict(&features[train_len + 1]), 52.0);
 

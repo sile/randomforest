@@ -1,3 +1,4 @@
+use crate::criterion::RegressionCriterion;
 use crate::decision_tree::{DecisionTreeOptions, DecisionTreeRegressor};
 use crate::functions;
 use crate::table::Table;
@@ -8,15 +9,15 @@ use std::num::NonZeroUsize;
 
 /// Random forest options.
 #[derive(Debug, Clone)]
-pub struct RandomForestOptions {
+pub struct RandomForestRegressorOptions {
     trees: NonZeroUsize,
     max_features: Option<NonZeroUsize>,
     seed: Option<u64>,
     parallel: bool,
 }
 
-impl RandomForestOptions {
-    /// Makes a `RandomForestOptions` instance with the default settings.
+impl RandomForestRegressorOptions {
+    /// Makes a `RandomForestRegressorOptions` instance with the default settings.
     pub fn new() -> Self {
         Self::default()
     }
@@ -45,7 +46,7 @@ impl RandomForestOptions {
         self
     }
 
-    /// Enables parallel executions of `RandomForest::fit`.
+    /// Enables parallel executions of `RandomForestRegressor::fit`.
     ///
     /// This library use `rayon` for parallel execution.
     /// Please see [the rayon document](https://docs.rs/rayon) if you want to configure the behavior
@@ -55,32 +56,34 @@ impl RandomForestOptions {
         self
     }
 
-    pub fn fit(&self, table: Table) -> RandomForest {
+    pub fn fit<T: RegressionCriterion>(&self, criterion: T, table: Table) -> RandomForestRegressor {
         let max_features = self.decide_max_features(&table);
         let forest = if self.parallel {
             self.tree_rngs()
                 .collect::<Vec<_>>()
                 .into_par_iter()
-                .map(|mut rng| Self::tree_fit(&mut rng, &table, max_features))
+                .map(|mut rng| Self::tree_fit(&mut rng, criterion.clone(), &table, max_features))
                 .collect::<Vec<_>>()
         } else {
             self.tree_rngs()
-                .map(|mut rng| Self::tree_fit(&mut rng, &table, max_features))
+                .map(|mut rng| Self::tree_fit(&mut rng, criterion.clone(), &table, max_features))
                 .collect::<Vec<_>>()
         };
-        RandomForest { forest }
+        RandomForestRegressor { forest }
     }
 
-    fn tree_fit<R: Rng + ?Sized>(
+    fn tree_fit<R: Rng + ?Sized, T: RegressionCriterion>(
         rng: &mut R,
+        criterion: T,
         table: &Table,
         max_features: usize,
     ) -> DecisionTreeRegressor {
         let table = table.bootstrap_sample(rng);
         let tree_options = DecisionTreeOptions {
             max_features: Some(max_features),
+            is_regression: true,
         };
-        DecisionTreeRegressor::fit(rng, table, tree_options)
+        DecisionTreeRegressor::fit(rng, criterion, table, tree_options)
     }
 
     fn tree_rngs(&self) -> impl Iterator<Item = StdRng> {
@@ -104,7 +107,7 @@ impl RandomForestOptions {
     }
 }
 
-impl Default for RandomForestOptions {
+impl Default for RandomForestRegressorOptions {
     fn default() -> Self {
         Self {
             trees: NonZeroUsize::new(100).expect("unreachable"),
@@ -118,13 +121,13 @@ impl Default for RandomForestOptions {
 // TODO: Support categorical features
 // TODO: Support classifier
 #[derive(Debug)]
-pub struct RandomForest {
+pub struct RandomForestRegressor {
     forest: Vec<DecisionTreeRegressor>,
 }
 
-impl RandomForest {
-    pub fn fit(table: Table) -> Self {
-        RandomForestOptions::default().fit(table)
+impl RandomForestRegressor {
+    pub fn fit<T: RegressionCriterion>(criterion: T, table: Table) -> Self {
+        RandomForestRegressorOptions::default().fit(criterion, table)
     }
 
     pub fn predict(&self, xs: &[f64]) -> f64 {
@@ -135,6 +138,7 @@ impl RandomForest {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::criterion::Mse;
     use crate::TableBuilder;
 
     #[test]
@@ -166,7 +170,7 @@ mod tests {
         }
         let table = table_builder.build()?;
 
-        let regressor = RandomForestOptions::new().seed(0).fit(table);
+        let regressor = RandomForestRegressorOptions::new().seed(0).fit(Mse, table);
         assert_eq!(regressor.predict(&features[train_len]), 41.9785);
         assert_eq!(
             regressor.predict(&features[train_len + 1]),
