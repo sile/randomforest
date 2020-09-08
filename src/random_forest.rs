@@ -135,41 +135,41 @@ impl RandomForest {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::TableBuilder;
 
     #[test]
     fn regression_works() -> Result<(), anyhow::Error> {
-        let columns = vec![
-            // Features.
-            &[
-                0.0, 0.0, 1.0, 2.0, 2.0, 2.0, 1.0, 0.0, 0.0, 2.0, 0.0, 1.0, 1.0, 2.0,
-            ],
-            &[
-                2.0, 2.0, 2.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 1.0,
-            ],
-            &[
-                1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0,
-            ],
-            &[
-                0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0,
-            ],
-            // Target.
-            &[
-                25.0, 30.0, 46.0, 45.0, 52.0, 23.0, 43.0, 35.0, 38.0, 46.0, 48.0, 52.0, 44.0, 30.0,
-            ],
+        let features = [
+            &[0.0, 2.0, 1.0, 0.0][..],
+            &[0.0, 2.0, 1.0, 1.0][..],
+            &[1.0, 2.0, 1.0, 0.0][..],
+            &[2.0, 1.0, 1.0, 0.0][..],
+            &[2.0, 0.0, 0.0, 0.0][..],
+            &[2.0, 0.0, 0.0, 1.0][..],
+            &[1.0, 0.0, 0.0, 1.0][..],
+            &[0.0, 1.0, 1.0, 0.0][..],
+            &[0.0, 0.0, 0.0, 0.0][..],
+            &[2.0, 1.0, 0.0, 0.0][..],
+            &[0.0, 1.0, 0.0, 1.0][..],
+            &[1.0, 1.0, 1.0, 1.0][..],
+            &[1.0, 2.0, 0.0, 0.0][..],
+            &[2.0, 1.0, 1.0, 1.0][..],
         ];
-        let train_len = columns[0].len() - 2;
+        let target = [
+            25.0, 30.0, 46.0, 45.0, 52.0, 23.0, 43.0, 35.0, 38.0, 46.0, 48.0, 52.0, 44.0, 30.0,
+        ];
+        let train_len = target.len() - 2;
 
-        let table = Table::new(columns.iter().map(|f| &f[..train_len]).collect())?;
+        let mut table_builder = TableBuilder::new();
+        for (xs, y) in features.iter().zip(target.iter()).take(train_len) {
+            table_builder.add_row(xs, *y)?;
+        }
+        let table = table_builder.build()?;
 
-        let mut options = RandomForestOptions::default();
-        options.seed = Some(0);
-        let regressor = RandomForestRegressor::fit(table, options);
+        let regressor = RandomForestOptions::new().seed(0).fit(table);
+        assert_eq!(regressor.predict(&features[train_len]), 41.9785);
         assert_eq!(
-            regressor.predict(&columns.iter().map(|f| f[train_len]).collect::<Vec<_>>()),
-            41.9785
-        );
-        assert_eq!(
-            regressor.predict(&columns.iter().map(|f| f[train_len + 1]).collect::<Vec<_>>()),
+            regressor.predict(&features[train_len + 1]),
             43.50333333333333
         );
 

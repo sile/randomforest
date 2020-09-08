@@ -144,41 +144,42 @@ impl<R: Rng> NodeBuilder<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::TableBuilder;
     use rand;
 
     #[test]
     fn regression_works() -> Result<(), anyhow::Error> {
-        let columns = vec![
-            // Features
-            &[
-                0.0, 0.0, 1.0, 2.0, 2.0, 2.0, 1.0, 0.0, 0.0, 2.0, 0.0, 1.0, 1.0, 2.0,
-            ],
-            &[
-                2.0, 2.0, 2.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 1.0,
-            ],
-            &[
-                1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0,
-            ],
-            &[
-                0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0,
-            ],
-            // Target
-            &[
-                25.0, 30.0, 46.0, 45.0, 52.0, 23.0, 43.0, 35.0, 38.0, 46.0, 48.0, 52.0, 44.0, 30.0,
-            ],
+        let features = [
+            &[0.0, 2.0, 1.0, 0.0][..],
+            &[0.0, 2.0, 1.0, 1.0][..],
+            &[1.0, 2.0, 1.0, 0.0][..],
+            &[2.0, 1.0, 1.0, 0.0][..],
+            &[2.0, 0.0, 0.0, 0.0][..],
+            &[2.0, 0.0, 0.0, 1.0][..],
+            &[1.0, 0.0, 0.0, 1.0][..],
+            &[0.0, 1.0, 1.0, 0.0][..],
+            &[0.0, 0.0, 0.0, 0.0][..],
+            &[2.0, 1.0, 0.0, 0.0][..],
+            &[0.0, 1.0, 0.0, 1.0][..],
+            &[1.0, 1.0, 1.0, 1.0][..],
+            &[1.0, 2.0, 0.0, 0.0][..],
+            &[2.0, 1.0, 1.0, 1.0][..],
         ];
-        let train_len = columns[0].len() - 2;
-        let table = Table::new(columns.iter().map(|c| &c[..train_len]).collect())?;
+        let target = [
+            25.0, 30.0, 46.0, 45.0, 52.0, 23.0, 43.0, 35.0, 38.0, 46.0, 48.0, 52.0, 44.0, 30.0,
+        ];
+        let train_len = target.len() - 2;
+
+        let mut table_builder = TableBuilder::new();
+        for (xs, y) in features.iter().zip(target.iter()).take(train_len) {
+            table_builder.add_row(xs, *y)?;
+        }
+        let table = table_builder.build()?;
+
         let regressor =
             DecisionTreeRegressor::fit(&mut rand::thread_rng(), table, Default::default());
-        assert_eq!(
-            regressor.predict(&columns.iter().map(|f| f[train_len]).collect::<Vec<_>>()),
-            46.0
-        );
-        assert_eq!(
-            regressor.predict(&columns.iter().map(|f| f[train_len + 1]).collect::<Vec<_>>()),
-            52.0
-        );
+        assert_eq!(regressor.predict(&features[train_len]), 46.0);
+        assert_eq!(regressor.predict(&features[train_len + 1]), 52.0);
 
         Ok(())
     }
