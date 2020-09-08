@@ -1,6 +1,6 @@
 use crate::criterion::Criterion;
 use crate::decision_tree::{DecisionTree, DecisionTreeOptions};
-use crate::table::Table;
+use crate::table::{ColumnType, Table};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -71,7 +71,10 @@ impl RandomForestOptions {
                 })
                 .collect::<Vec<_>>()
         };
-        RandomForest { forest }
+        RandomForest {
+            columns: table.column_types().to_owned(),
+            forest,
+        }
     }
 
     fn tree_fit<R: Rng + ?Sized, T: Criterion>(
@@ -125,11 +128,14 @@ impl Default for RandomForestOptions {
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RandomForest {
+    columns: Vec<ColumnType>,
     forest: Vec<DecisionTree>,
 }
 
 impl RandomForest {
     pub fn predict<'a>(&'a self, xs: &'a [f64]) -> impl 'a + Iterator<Item = f64> {
-        self.forest.iter().map(move |tree| tree.predict(xs))
+        self.forest
+            .iter()
+            .map(move |tree| tree.predict(xs, &self.columns))
     }
 }

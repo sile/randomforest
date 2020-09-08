@@ -59,7 +59,6 @@ impl RandomForestRegressorOptions {
     }
 }
 
-// TODO: Support categorical features
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RandomForestRegressor {

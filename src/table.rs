@@ -1,13 +1,26 @@
 use ordered_float::OrderedFloat;
 use rand::Rng;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use std::ops::Range;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "UPPERCASE"))]
 pub enum ColumnType {
     Numerical,
     Categorical,
+}
+
+impl ColumnType {
+    pub(crate) fn is_left(self, x: f64, split_value: f64) -> bool {
+        match self {
+            Self::Numerical => x <= split_value,
+            Self::Categorical => x == split_value,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -113,6 +126,10 @@ impl<'a> Table<'a> {
         self.row_range.end - self.row_range.start
     }
 
+    pub(crate) fn column_types(&self) -> &'a [ColumnType] {
+        self.column_types
+    }
+
     fn rows<'b>(&'b self) -> impl 'b + Iterator<Item = usize> + Clone {
         self.row_index[self.row_range.start..self.row_range.end]
             .iter()
@@ -123,6 +140,17 @@ impl<'a> Table<'a> {
         let columns = &self.columns;
         (&mut self.row_index[self.row_range.start..self.row_range.end])
             .sort_by_key(|&x| OrderedFloat(columns[column][x]))
+    }
+
+    pub(crate) fn sort_rows_by_categorical_column(&mut self, column: usize, value: f64) {
+        let columns = &self.columns;
+        (&mut self.row_index[self.row_range.start..self.row_range.end]).sort_by_key(|&x| {
+            if columns[column][x] == value {
+                0
+            } else {
+                1
+            }
+        })
     }
 
     pub(crate) fn bootstrap_sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Self {
@@ -141,23 +169,30 @@ impl<'a> Table<'a> {
         }
     }
 
-    pub(crate) fn thresholds<'b>(
+    pub(crate) fn split_points<'b>(
         &'b self,
-        column: usize,
-    ) -> impl 'b + Iterator<Item = (usize, f64)> {
+        column_index: usize,
+    ) -> impl 'b + Iterator<Item = (Range<usize>, f64)> {
         // Assumption: `self.columns[column]` has been sorted.
-        let column = &self.columns[column];
+        let column = &self.columns[column_index];
+        let categorical = self.column_types[column_index] == ColumnType::Categorical;
         self.rows()
             .map(move |i| column[i])
             .enumerate()
-            .scan(None, |prev, (i, x)| {
+            .scan(None, move |prev, (i, x)| {
                 if prev.is_none() {
-                    *prev = Some(x);
+                    *prev = Some((x, i));
                     Some(None)
-                } else if *prev != Some(x) {
-                    let y = prev.expect("never fails");
-                    *prev = Some(x);
-                    Some(Some((i, (x + y) / 2.0)))
+                } else if prev.map_or(false, |(y, _)| y != x) {
+                    let (y, j) = prev.expect("never fails");
+                    *prev = Some((x, i));
+                    if categorical {
+                        let r = Range { start: j, end: i };
+                        Some(Some((r, y)))
+                    } else {
+                        let r = Range { start: 0, end: i };
+                        Some(Some((r, (x + y) / 2.0)))
+                    }
                 } else {
                     Some(None)
                 }
