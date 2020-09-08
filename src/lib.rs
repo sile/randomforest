@@ -1,5 +1,5 @@
 pub use self::random_forest::{RandomForestOptions, RandomForestRegressor};
-pub use self::table::{Table, TableError};
+pub use self::table::{ColumnType, Table, TableBuilder, TableError};
 
 mod decision_tree;
 mod functions;
