@@ -1,3 +1,4 @@
+pub use self::random_forest::classifier::{RandomForestClassifier, RandomForestClassifierOptions};
 pub use self::random_forest::regressor::{RandomForestRegressor, RandomForestRegressorOptions};
 
 pub mod criterion;
