@@ -15,31 +15,10 @@ pub struct DecisionTreeOptions {
 
 #[derive(Debug)]
 pub struct DecisionTree {
-    tree: Tree,
-}
-
-impl DecisionTree {
-    pub fn fit<R: Rng + ?Sized, T: Criterion>(
-        rng: &mut R,
-        criterion: T,
-        table: Table,
-        options: DecisionTreeOptions,
-    ) -> Self {
-        let tree = Tree::fit(rng, criterion, table, options);
-        Self { tree }
-    }
-
-    pub fn predict(&self, xs: &[f64]) -> f64 {
-        self.tree.predict(xs)
-    }
-}
-
-#[derive(Debug)]
-pub struct Tree {
     root: Node,
 }
 
-impl Tree {
+impl DecisionTree {
     pub fn fit<R: Rng + ?Sized, T: Criterion>(
         rng: &mut R,
         criterion: T,
@@ -57,7 +36,7 @@ impl Tree {
         Self { root }
     }
 
-    fn predict(&self, xs: &[f64]) -> f64 {
+    pub fn predict(&self, xs: &[f64]) -> f64 {
         self.root.predict(xs)
     }
 }
