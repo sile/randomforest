@@ -139,7 +139,7 @@ impl RandomForestRegressor {
 mod tests {
     use super::*;
     use crate::criterion::Mse;
-    use crate::TableBuilder;
+    use crate::table::TableBuilder;
 
     #[test]
     fn regression_works() -> Result<(), anyhow::Error> {

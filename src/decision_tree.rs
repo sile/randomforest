@@ -168,7 +168,7 @@ impl<R: Rng, T: Criterion> NodeBuilder<R, T> {
 mod tests {
     use super::*;
     use crate::criterion::Mse;
-    use crate::TableBuilder;
+    use crate::table::TableBuilder;
     use rand;
 
     #[test]
