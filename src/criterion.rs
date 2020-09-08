@@ -62,3 +62,44 @@ impl Criterion for Entropy {
             .sum()
     }
 }
+
+impl ClassificationCriterion for Entropy {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mse_works() {
+        assert_eq!(
+            Mse.calculate([50.0, 60.0, 70.0, 70.0, 100.0].iter().copied()),
+            280.0
+        );
+    }
+
+    #[test]
+    fn gini_works() {
+        assert_eq!(
+            Gini.calculate([0.0, 1.0, 0.0, 1.0, 1.0, 0.0].iter().copied()),
+            0.5
+        );
+        assert_eq!(
+            Gini.calculate([0.0, 0.0, 0.0, 0.0, 0.0, 0.0].iter().copied()),
+            0.0
+        );
+        assert_eq!(
+            Gini.calculate([0.0, 1.0, 0.0, 0.0, 0.0, 0.0].iter().copied()),
+            0.2777777777777777
+        );
+    }
+
+    #[test]
+    fn entropy_works() {
+        assert_eq!(Entropy.calculate([0.0, 1.0, 0.0, 1.0].iter().copied()), 1.0);
+        assert_eq!(Entropy.calculate([0.0, 0.0, 0.0, 0.0].iter().copied()), 0.0);
+        assert_eq!(
+            Entropy.calculate([0.0, 1.0, 0.0, 0.0].iter().copied()),
+            0.8112781244591328
+        );
+    }
+}
