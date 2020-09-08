@@ -2,6 +2,8 @@ use super::core::{RandomForest, RandomForestOptions};
 use crate::criterion::RegressionCriterion;
 use crate::functions;
 use crate::table::Table;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 
 /// Random forest options.
@@ -59,7 +61,9 @@ impl RandomForestRegressorOptions {
 
 // TODO: Support categorical features
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RandomForestRegressor {
+    #[cfg_attr(feature = "serde", serde(flatten))]
     inner: RandomForest,
 }
 

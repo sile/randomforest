@@ -3,6 +3,8 @@ use crate::functions;
 use crate::table::Table;
 use rand::seq::SliceRandom as _;
 use rand::Rng;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 const MIN_SAMPLES_SPLIT: usize = 2;
 const MAX_DEPTH: usize = 64;
@@ -14,6 +16,7 @@ pub struct DecisionTreeOptions {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct DecisionTree {
     root: Node,
 }
@@ -42,6 +45,8 @@ impl DecisionTree {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Node {
     Leaf { value: f64 },
     Internal { children: Children },
@@ -63,6 +68,7 @@ impl Node {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Children {
     split: SplitPoint,
     left: Box<Node>,
@@ -70,9 +76,10 @@ pub struct Children {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SplitPoint {
-    pub column: usize,
-    pub threshold: f64,
+    column: usize,
+    threshold: f64,
 }
 
 #[derive(Debug)]

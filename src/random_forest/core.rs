@@ -4,6 +4,8 @@ use crate::table::Table;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 
 #[derive(Debug, Clone)]
@@ -121,6 +123,7 @@ impl Default for RandomForestOptions {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RandomForest {
     forest: Vec<DecisionTree>,
 }
