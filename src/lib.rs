@@ -1,4 +1,4 @@
-pub use self::random_forest::{RandomForestRegressor, RandomForestRegressorOptions};
+pub use self::random_forest::regressor::{RandomForestRegressor, RandomForestRegressorOptions};
 
 pub mod criterion;
 pub mod table;
