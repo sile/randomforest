@@ -1,13 +1,18 @@
+//! Criterions to measure the quality of a node split.
 use crate::functions;
 
+/// This trait allows measuring the quality of a node split.
 pub trait Criterion: Send + Sync + Clone {
+    /// Calculates the quality of a node split (the lower return value, the beter).
     fn calculate<T>(&self, xs: T) -> f64
     where
         T: Iterator<Item = f64> + Clone;
 }
 
+/// This trait indicates criterions for regression.
 pub trait RegressionCriterion: Criterion {}
 
+/// Mean Squared Error.
 #[derive(Debug, Clone)]
 pub struct Mse;
 
@@ -24,8 +29,10 @@ impl Criterion for Mse {
 
 impl RegressionCriterion for Mse {}
 
+/// This trait indicates criterions for classifications.
 pub trait ClassificationCriterion: Criterion {}
 
+/// Gini impurity.
 #[derive(Debug, Clone)]
 pub struct Gini;
 
@@ -44,6 +51,7 @@ impl Criterion for Gini {
 
 impl ClassificationCriterion for Gini {}
 
+/// Information entropy.
 #[derive(Debug, Clone)]
 pub struct Entropy;
 

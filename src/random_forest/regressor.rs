@@ -52,6 +52,7 @@ impl RandomForestRegressorOptions {
         self
     }
 
+    /// Builds a regressor model fitting the given table.
     pub fn fit<T: RegressionCriterion>(&self, criterion: T, table: Table) -> RandomForestRegressor {
         RandomForestRegressor {
             inner: self.inner.fit(criterion, true, table),
@@ -59,6 +60,7 @@ impl RandomForestRegressorOptions {
     }
 }
 
+/// Random forest regressor.
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RandomForestRegressor {
@@ -67,12 +69,14 @@ pub struct RandomForestRegressor {
 }
 
 impl RandomForestRegressor {
+    /// Builds a regressor model fitting the given table with the default settings.
     pub fn fit<T: RegressionCriterion>(criterion: T, table: Table) -> Self {
         RandomForestRegressorOptions::default().fit(criterion, table)
     }
 
-    pub fn predict(&self, xs: &[f64]) -> f64 {
-        functions::mean(self.inner.predict(xs))
+    /// Predicts the target value for the given features.
+    pub fn predict(&self, features: &[f64]) -> f64 {
+        functions::mean(self.inner.predict(features))
     }
 }
 

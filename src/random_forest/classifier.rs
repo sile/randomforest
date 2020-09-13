@@ -52,6 +52,7 @@ impl RandomForestClassifierOptions {
         self
     }
 
+    /// Builds a classifier model fitting the given table.
     pub fn fit<T: ClassificationCriterion>(
         &self,
         criterion: T,
@@ -63,6 +64,7 @@ impl RandomForestClassifierOptions {
     }
 }
 
+/// Random forest classifier.
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RandomForestClassifier {
@@ -71,12 +73,14 @@ pub struct RandomForestClassifier {
 }
 
 impl RandomForestClassifier {
+    /// Builds a classifier model fitting the given table with the default settings.
     pub fn fit<T: ClassificationCriterion>(criterion: T, table: Table) -> Self {
         RandomForestClassifierOptions::default().fit(criterion, table)
     }
 
-    pub fn predict(&self, xs: &[f64]) -> f64 {
-        functions::most_frequent(self.inner.predict(xs))
+    /// Predicts the target value for the given features.
+    pub fn predict(&self, features: &[f64]) -> f64 {
+        functions::most_frequent(self.inner.predict(features))
     }
 }
 

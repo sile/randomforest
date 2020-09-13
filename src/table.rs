@@ -1,3 +1,4 @@
+//! Table data which contains features and a target columns.
 use ordered_float::OrderedFloat;
 use rand::Rng;
 #[cfg(feature = "serde")]
@@ -5,12 +6,16 @@ use serde::{Deserialize, Serialize};
 use std::ops::Range;
 use thiserror::Error;
 
+/// Column type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "UPPERCASE"))]
 pub enum ColumnType {
+    /// Numerical column.
     Numerical,
+
+    /// Categorical column.
     Categorical,
 }
 
@@ -23,6 +28,7 @@ impl ColumnType {
     }
 }
 
+/// `Table` builder.
 #[derive(Debug)]
 pub struct TableBuilder {
     column_types: Vec<ColumnType>,
@@ -30,6 +36,7 @@ pub struct TableBuilder {
 }
 
 impl TableBuilder {
+    /// Makes a new `TableBuilder` instance.
     pub fn new() -> Self {
         Self {
             column_types: Vec::new(),
@@ -37,6 +44,9 @@ impl TableBuilder {
         }
     }
 
+    /// Sets the types of feature columns.
+    ///
+    /// In the default, the feature columns are regarded as numerical.
     pub fn set_feature_column_types(&mut self, types: &[ColumnType]) -> Result<(), TableError> {
         if self.columns.is_empty() {
             self.columns = vec![Vec::new(); types.len() + 1];
@@ -50,6 +60,7 @@ impl TableBuilder {
         Ok(())
     }
 
+    /// Adds a row to the table.
     pub fn add_row(&mut self, features: &[f64], target: f64) -> Result<(), TableError> {
         if self.columns.is_empty() {
             self.columns = vec![Vec::new(); features.len() + 1];
@@ -78,6 +89,7 @@ impl TableBuilder {
         Ok(())
     }
 
+    /// Builds a `Table` instance.
     pub fn build(&self) -> Result<Table, TableError> {
         if self.columns.is_empty() || self.columns[0].is_empty() {
             return Err(TableError::EmptyTable);
@@ -102,6 +114,7 @@ impl Default for TableBuilder {
     }
 }
 
+/// A table.
 #[derive(Debug, Clone)]
 pub struct Table<'a> {
     row_index: Vec<usize>,
@@ -223,14 +236,18 @@ impl<'a> Table<'a> {
     }
 }
 
+/// Error kinds which could be returned during buidling a table.
 #[derive(Debug, Error, Clone, PartialEq, Eq, Hash)]
 pub enum TableError {
+    /// Table must have at least one column and one row.
     #[error("table must have at least one column and one row")]
     EmptyTable,
 
+    /// Some of rows have a different column count from others.
     #[error("some of rows have a different column count from others")]
     ColumnSizeMismatch,
 
+    /// Target column contains non finite numbers.
     #[error("target column contains non finite numbers")]
     NonFiniteTarget,
 }
