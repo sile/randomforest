@@ -49,11 +49,11 @@ impl DecisionTree {
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Node {
     Leaf {
-        #[serde(rename = "v")]
+        #[cfg_attr(feature = "serde", serde(rename = "v"))]
         value: f64,
     },
     Internal {
-        #[serde(rename = "c")]
+        #[cfg_attr(feature = "serde", serde(rename = "c"))]
         children: Children,
     },
 }
@@ -78,20 +78,20 @@ impl Node {
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Children {
-    #[serde(rename = "s")]
+    #[cfg_attr(feature = "serde", serde(rename = "s"))]
     split: SplitPoint,
-    #[serde(rename = "l")]
+    #[cfg_attr(feature = "serde", serde(rename = "l"))]
     left: Box<Node>,
-    #[serde(rename = "r")]
+    #[cfg_attr(feature = "serde", serde(rename = "r"))]
     right: Box<Node>,
 }
 
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SplitPoint {
-    #[serde(rename = "c")]
+    #[cfg_attr(feature = "serde", serde(rename = "c"))]
     column: usize,
-    #[serde(rename = "v")]
+    #[cfg_attr(feature = "serde", serde(rename = "v"))]
     value: f64,
 }
 
