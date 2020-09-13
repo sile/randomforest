@@ -113,10 +113,19 @@ mod tests {
         }
         let table = table_builder.build()?;
 
-        let regressor = RandomForestClassifierOptions::new()
+        let classifier = RandomForestClassifierOptions::new()
             .seed(0)
+            .fit(Gini, table.clone());
+        assert_eq!(classifier.predict(&features[train_len]), 0.0);
+
+        let classifier_parallel = RandomForestClassifierOptions::new()
+            .seed(0)
+            .parallel()
             .fit(Gini, table);
-        assert_eq!(regressor.predict(&features[train_len]), 0.0);
+        assert_eq!(
+            classifier.predict(&features[train_len]),
+            classifier_parallel.predict(&features[train_len])
+        );
 
         Ok(())
     }

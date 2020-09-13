@@ -111,11 +111,22 @@ mod tests {
         }
         let table = table_builder.build()?;
 
-        let regressor = RandomForestRegressorOptions::new().seed(0).fit(Mse, table);
+        let regressor = RandomForestRegressorOptions::new()
+            .seed(0)
+            .fit(Mse, table.clone());
         assert_eq!(regressor.predict(&features[train_len]), 41.9785);
         assert_eq!(
             regressor.predict(&features[train_len + 1]),
             43.50333333333333
+        );
+
+        let regressor_parallel = RandomForestRegressorOptions::new()
+            .seed(0)
+            .parallel()
+            .fit(Mse, table);
+        assert_eq!(
+            regressor.predict(&features[train_len]),
+            regressor_parallel.predict(&features[train_len])
         );
 
         Ok(())
