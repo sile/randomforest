@@ -170,13 +170,18 @@ impl<'a> Table<'a> {
         })
     }
 
-    pub(crate) fn bootstrap_sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Self {
-        let row_index = (0..self.rows_len())
+    pub(crate) fn bootstrap_sample<R: Rng + ?Sized>(
+        &self,
+        rng: &mut R,
+        max_samples: usize,
+    ) -> Self {
+        let samples = std::cmp::min(max_samples, self.rows_len());
+        let row_index = (0..samples)
             .map(|_| self.row_index[rng.gen_range(self.row_range.start, self.row_range.end)])
             .collect::<Vec<_>>();
         let row_range = Range {
             start: 0,
-            end: self.rows_len(),
+            end: samples,
         };
         Self {
             row_index,

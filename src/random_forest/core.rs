@@ -12,6 +12,7 @@ use std::num::NonZeroUsize;
 pub struct RandomForestOptions {
     trees: NonZeroUsize,
     max_features: Option<NonZeroUsize>,
+    max_samples: Option<NonZeroUsize>,
     seed: Option<u64>,
     parallel: bool,
 }
@@ -32,6 +33,11 @@ impl RandomForestOptions {
         self
     }
 
+    pub fn max_samples(&mut self, max: NonZeroUsize) -> &mut Self {
+        self.max_samples = Some(max);
+        self
+    }
+
     pub fn parallel(&mut self) -> &mut Self {
         self.parallel = true;
         self
@@ -43,32 +49,15 @@ impl RandomForestOptions {
         is_regression: bool,
         table: Table,
     ) -> RandomForest {
-        let max_features = self.decide_max_features(&table);
         let forest = if self.parallel {
             self.tree_rngs()
                 .collect::<Vec<_>>()
                 .into_par_iter()
-                .map(|mut rng| {
-                    Self::tree_fit(
-                        &mut rng,
-                        criterion.clone(),
-                        is_regression,
-                        max_features,
-                        &table,
-                    )
-                })
+                .map(|mut rng| self.tree_fit(&mut rng, criterion.clone(), is_regression, &table))
                 .collect::<Vec<_>>()
         } else {
             self.tree_rngs()
-                .map(|mut rng| {
-                    Self::tree_fit(
-                        &mut rng,
-                        criterion.clone(),
-                        is_regression,
-                        max_features,
-                        &table,
-                    )
-                })
+                .map(|mut rng| self.tree_fit(&mut rng, criterion.clone(), is_regression, &table))
                 .collect::<Vec<_>>()
         };
         RandomForest {
@@ -78,14 +67,15 @@ impl RandomForestOptions {
     }
 
     fn tree_fit<R: Rng + ?Sized, T: Criterion>(
+        &self,
         rng: &mut R,
         criterion: T,
         is_regression: bool,
-
-        max_features: usize,
         table: &Table,
     ) -> DecisionTree {
-        let table = table.bootstrap_sample(rng);
+        let max_features = self.decide_max_features(table);
+        let max_samples = self.max_samples.map_or(table.rows_len(), |n| n.get());
+        let table = table.bootstrap_sample(rng, max_samples);
         let tree_options = DecisionTreeOptions {
             max_features: Some(max_features),
             is_regression,
@@ -119,6 +109,7 @@ impl Default for RandomForestOptions {
         Self {
             trees: NonZeroUsize::new(100).expect("unreachable"),
             max_features: None,
+            max_samples: None,
             seed: None,
             parallel: false,
         }

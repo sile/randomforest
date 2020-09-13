@@ -34,11 +34,19 @@ impl RandomForestRegressorOptions {
         self
     }
 
-    /// Sets the number of maximum candidate features used to determine each decision tree node.
+    /// Sets the maximum number of candidate features used to determine each decision tree node.
     ///
     /// The default value is `sqrt(the number of features)`.
     pub fn max_features(&mut self, max: NonZeroUsize) -> &mut Self {
         self.inner.max_features(max);
+        self
+    }
+
+    /// Sets the maximum number of samples used to train each decision tree.
+    ///
+    /// The default value is the number of rows in the target table.
+    pub fn max_samples(&mut self, max: NonZeroUsize) -> &mut Self {
+        self.inner.max_samples(max);
         self
     }
 

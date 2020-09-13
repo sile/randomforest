@@ -42,6 +42,14 @@ impl RandomForestClassifierOptions {
         self
     }
 
+    /// Sets the maximum number of samples used to train each decision tree.
+    ///
+    /// The default value is the number of rows in the target table.
+    pub fn max_samples(&mut self, max: NonZeroUsize) -> &mut Self {
+        self.inner.max_samples(max);
+        self
+    }
+
     /// Enables parallel executions of `RandomForestClassifier::fit`.
     ///
     /// This library use `rayon` for parallel execution.
