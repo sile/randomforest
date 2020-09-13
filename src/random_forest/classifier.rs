@@ -102,7 +102,7 @@ mod tests {
         let train_len = target.len() - 1;
 
         let mut table_builder = TableBuilder::new();
-        table_builder.set_column_types(&[
+        table_builder.set_feature_column_types(&[
             ColumnType::Categorical,
             ColumnType::Categorical,
             ColumnType::Categorical,

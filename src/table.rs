@@ -37,16 +37,16 @@ impl TableBuilder {
         }
     }
 
-    pub fn set_column_types(&mut self, column_types: &[ColumnType]) -> Result<(), TableError> {
-        if column_types.is_empty() {
-            return Err(TableError::EmptyTable);
+    pub fn set_feature_column_types(&mut self, types: &[ColumnType]) -> Result<(), TableError> {
+        if self.columns.is_empty() {
+            self.columns = vec![Vec::new(); types.len() + 1];
         }
 
-        if !self.columns.is_empty() && self.columns.len() != column_types.len() {
+        if self.columns.len() != types.len() + 1 {
             return Err(TableError::ColumnSizeMismatch);
         }
 
-        self.column_types = column_types.to_owned();
+        self.column_types = types.to_owned();
         Ok(())
     }
 
@@ -64,9 +64,7 @@ impl TableBuilder {
         }
 
         if self.column_types.is_empty() {
-            self.column_types = (0..self.columns.len())
-                .map(|_| ColumnType::Numerical)
-                .collect();
+            self.column_types = (0..features.len()).map(|_| ColumnType::Numerical).collect();
         }
 
         for (column, value) in self
@@ -225,7 +223,7 @@ impl<'a> Table<'a> {
     }
 }
 
-#[derive(Debug, Error, Clone)]
+#[derive(Debug, Error, Clone, PartialEq, Eq, Hash)]
 pub enum TableError {
     #[error("table must have at least one column and one row")]
     EmptyTable,
@@ -235,4 +233,33 @@ pub enum TableError {
 
     #[error("target column contains non finite numbers")]
     NonFiniteTarget,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_check_works() -> anyhow::Result<()> {
+        assert_eq!(
+            TableBuilder::default().build().err(),
+            Some(TableError::EmptyTable)
+        );
+
+        let mut table = TableBuilder::default();
+        table.set_feature_column_types(&[ColumnType::Numerical])?;
+        assert_eq!(
+            table.add_row(&[1.0, 1.0], 10.0).err(),
+            Some(TableError::ColumnSizeMismatch)
+        );
+
+        assert_eq!(
+            TableBuilder::default()
+                .add_row(&[1.0], std::f64::INFINITY)
+                .err(),
+            Some(TableError::NonFiniteTarget)
+        );
+
+        Ok(())
+    }
 }
