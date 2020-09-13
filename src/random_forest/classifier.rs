@@ -79,3 +79,45 @@ impl RandomForestClassifier {
         functions::most_frequent(self.inner.predict(xs))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::criterion::Gini;
+    use crate::table::{ColumnType, TableBuilder};
+
+    #[test]
+    fn classification_works() -> Result<(), anyhow::Error> {
+        let features = [
+            &[0.0, 1.0, 0.0][..],
+            &[1.0, 1.0, 1.0][..],
+            &[0.0, 0.0, 1.0][..],
+            &[1.0, 0.0, 0.0][..],
+            &[1.0, 0.0, 0.0][..],
+            &[0.0, 1.0, 0.0][..],
+            &[1.0, 0.0, 1.0][..],
+        ];
+
+        let target = [1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0];
+        let train_len = target.len() - 1;
+
+        let mut table_builder = TableBuilder::new();
+        table_builder.set_column_types(&[
+            ColumnType::Categorical,
+            ColumnType::Categorical,
+            ColumnType::Categorical,
+        ])?;
+
+        for (xs, y) in features.iter().zip(target.iter()).take(train_len) {
+            table_builder.add_row(xs, *y)?;
+        }
+        let table = table_builder.build()?;
+
+        let regressor = RandomForestClassifierOptions::new()
+            .seed(0)
+            .fit(Gini, table);
+        assert_eq!(regressor.predict(&features[train_len]), 0.0);
+
+        Ok(())
+    }
+}
