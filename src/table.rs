@@ -18,7 +18,7 @@ impl ColumnType {
     pub(crate) fn is_left(self, x: f64, split_value: f64) -> bool {
         match self {
             Self::Numerical => x <= split_value,
-            Self::Categorical => x == split_value,
+            Self::Categorical => (x - split_value).abs() < std::f64::EPSILON,
         }
     }
 }
@@ -98,6 +98,12 @@ impl TableBuilder {
     }
 }
 
+impl Default for TableBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Table<'a> {
     row_index: Vec<usize>,
@@ -145,7 +151,7 @@ impl<'a> Table<'a> {
     pub(crate) fn sort_rows_by_categorical_column(&mut self, column: usize, value: f64) {
         let columns = &self.columns;
         (&mut self.row_index[self.row_range.start..self.row_range.end]).sort_by_key(|&x| {
-            if columns[column][x] == value {
+            if (columns[column][x] - value).abs() < std::f64::EPSILON {
                 0
             } else {
                 1
@@ -183,7 +189,7 @@ impl<'a> Table<'a> {
                 if prev.is_none() {
                     *prev = Some((x, i));
                     Some(None)
-                } else if prev.map_or(false, |(y, _)| y != x) {
+                } else if prev.map_or(false, |(y, _)| (y - x).abs() > std::f64::EPSILON) {
                     let (y, j) = prev.expect("never fails");
                     *prev = Some((x, i));
                     if categorical {
