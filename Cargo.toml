@@ -16,10 +16,10 @@ license = "MIT"
 coveralls = {repository = "sile/randomforest"}
 
 [dependencies]
+byteorder = "1"
 ordered-float = "2"
 rand = "0.7"
 rayon = "1"
-serde = { version = "1", features = ["derive"], optional = true }
 thiserror = "1"
 
 [dev-dependencies]

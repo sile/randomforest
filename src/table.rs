@@ -1,22 +1,18 @@
 //! Table data which contains features and a target columns.
 use ordered_float::OrderedFloat;
 use rand::Rng;
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
 use std::ops::Range;
 use thiserror::Error;
 
 /// Column type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "UPPERCASE"))]
 pub enum ColumnType {
     /// Numerical column.
-    Numerical,
+    Numerical = 0,
 
     /// Categorical column.
-    Categorical,
+    Categorical = 1,
 }
 
 impl ColumnType {

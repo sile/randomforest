@@ -1,11 +1,11 @@
 use crate::criterion::Criterion;
 use crate::decision_tree::{DecisionTree, DecisionTreeOptions};
 use crate::table::{ColumnType, Table};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
 use std::num::NonZeroUsize;
 
 #[derive(Debug, Clone)]
@@ -117,7 +117,6 @@ impl Default for RandomForestOptions {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RandomForest {
     columns: Vec<ColumnType>,
     forest: Vec<DecisionTree>,
@@ -128,5 +127,40 @@ impl RandomForest {
         self.forest
             .iter()
             .map(move |tree| tree.predict(xs, &self.columns))
+    }
+
+    pub fn serialize<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+        writer.write_u16::<BigEndian>(self.columns.len() as u16)?;
+        for &c in &self.columns {
+            writer.write_u8(c as u8)?;
+        }
+
+        writer.write_u16::<BigEndian>(self.forest.len() as u16)?;
+        for tree in &self.forest {
+            tree.serialize(&mut writer)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn deserialize<R: Read>(mut reader: R) -> std::io::Result<Self> {
+        let columns_len = reader.read_u16::<BigEndian>()?;
+        let columns = (0..columns_len)
+            .map(|_| match reader.read_u8()? {
+                0 => Ok(ColumnType::Numerical),
+                1 => Ok(ColumnType::Categorical),
+                v => Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("unknown column type {}", v),
+                )),
+            })
+            .collect::<std::io::Result<Vec<_>>>()?;
+
+        let forest_len = reader.read_u16::<BigEndian>()?;
+        let forest = (0..forest_len)
+            .map(|_| DecisionTree::deserialize(&mut reader))
+            .collect::<std::io::Result<Vec<_>>>()?;
+
+        Ok(Self { columns, forest })
     }
 }

@@ -2,8 +2,7 @@ use super::core::{RandomForest, RandomForestOptions};
 use crate::criterion::RegressionCriterion;
 use crate::functions;
 use crate::table::Table;
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
 use std::num::NonZeroUsize;
 
 /// Random forest options.
@@ -70,9 +69,7 @@ impl RandomForestRegressorOptions {
 
 /// Random forest regressor.
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RandomForestRegressor {
-    #[cfg_attr(feature = "serde", serde(flatten))]
     inner: RandomForest,
 }
 
@@ -85,6 +82,17 @@ impl RandomForestRegressor {
     /// Predicts the target value for the given features.
     pub fn predict(&self, features: &[f64]) -> f64 {
         functions::mean(self.inner.predict(features))
+    }
+
+    /// Writes this regressor to the given byte stream.
+    pub fn serialize<W: Write>(&self, writer: W) -> std::io::Result<()> {
+        self.inner.serialize(writer)
+    }
+
+    /// Reads a regressor from the given byte stream.
+    pub fn deserialize<R: Read>(reader: R) -> std::io::Result<Self> {
+        let inner = RandomForest::deserialize(reader)?;
+        Ok(Self { inner })
     }
 }
 
@@ -139,6 +147,14 @@ mod tests {
         assert_eq!(
             regressor.predict(&features[train_len]),
             regressor_parallel.predict(&features[train_len])
+        );
+
+        let mut bytes = Vec::new();
+        regressor.serialize(&mut bytes)?;
+        let regressor_deserialized = RandomForestRegressor::deserialize(&mut &bytes[..])?;
+        assert_eq!(
+            regressor.predict(&features[train_len]),
+            regressor_deserialized.predict(&features[train_len])
         );
 
         Ok(())

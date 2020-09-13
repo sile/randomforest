@@ -1,10 +1,10 @@
 use crate::criterion::Criterion;
 use crate::functions;
 use crate::table::{ColumnType, Table};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use rand::seq::SliceRandom as _;
 use rand::Rng;
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
 
 const MIN_SAMPLES_SPLIT: usize = 2;
 const MAX_DEPTH: usize = 64;
@@ -16,7 +16,6 @@ pub struct DecisionTreeOptions {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct DecisionTree {
     root: Node,
 }
@@ -42,20 +41,21 @@ impl DecisionTree {
     pub fn predict(&self, xs: &[f64], columns: &[ColumnType]) -> f64 {
         self.root.predict(xs, columns)
     }
+
+    pub fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        self.root.serialize(writer)
+    }
+
+    pub fn deserialize<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let root = Node::deserialize(reader)?;
+        Ok(Self { root })
+    }
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Node {
-    Leaf {
-        #[cfg_attr(feature = "serde", serde(rename = "v"))]
-        value: f64,
-    },
-    Internal {
-        #[cfg_attr(feature = "serde", serde(rename = "c"))]
-        children: Children,
-    },
+    Leaf { value: f64 },
+    Internal { children: Children },
 }
 
 impl Node {
@@ -73,26 +73,81 @@ impl Node {
             }
         }
     }
+
+    fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        match self {
+            Self::Leaf { value } => {
+                writer.write_u8(0)?;
+                writer.write_f64::<BigEndian>(*value)?;
+            }
+            Self::Internal { children } => {
+                writer.write_u8(1)?;
+                children.serialize(writer)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn deserialize<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let kind = reader.read_u8()?;
+        match kind {
+            0 => {
+                let value = reader.read_f64::<BigEndian>()?;
+                Ok(Self::Leaf { value })
+            }
+            1 => {
+                let children = Children::deserialize(reader)?;
+                Ok(Self::Internal { children })
+            }
+            v => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("unknown node type {}", v),
+            )),
+        }
+    }
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Children {
-    #[cfg_attr(feature = "serde", serde(rename = "s"))]
     split: SplitPoint,
-    #[cfg_attr(feature = "serde", serde(rename = "l"))]
     left: Box<Node>,
-    #[cfg_attr(feature = "serde", serde(rename = "r"))]
     right: Box<Node>,
 }
 
+impl Children {
+    fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        self.split.serialize(writer)?;
+        self.left.serialize(writer)?;
+        self.right.serialize(writer)?;
+        Ok(())
+    }
+
+    fn deserialize<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let split = SplitPoint::deserialize(reader)?;
+        let left = Box::new(Node::deserialize(reader)?);
+        let right = Box::new(Node::deserialize(reader)?);
+        Ok(Self { split, left, right })
+    }
+}
+
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SplitPoint {
-    #[cfg_attr(feature = "serde", serde(rename = "c"))]
     column: usize,
-    #[cfg_attr(feature = "serde", serde(rename = "v"))]
     value: f64,
+}
+
+impl SplitPoint {
+    fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_u16::<BigEndian>(self.column as u16)?;
+        writer.write_f64::<BigEndian>(self.value)?;
+        Ok(())
+    }
+
+    fn deserialize<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let column = reader.read_u16::<BigEndian>()? as usize;
+        let value = reader.read_f64::<BigEndian>()?;
+        Ok(Self { column, value })
+    }
 }
 
 #[derive(Debug)]

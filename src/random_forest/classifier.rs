@@ -2,8 +2,7 @@ use super::core::{RandomForest, RandomForestOptions};
 use crate::criterion::ClassificationCriterion;
 use crate::functions;
 use crate::table::Table;
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
 use std::num::NonZeroUsize;
 
 /// Random forest options.
@@ -74,9 +73,7 @@ impl RandomForestClassifierOptions {
 
 /// Random forest classifier.
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RandomForestClassifier {
-    #[cfg_attr(feature = "serde", serde(flatten))]
     inner: RandomForest,
 }
 
@@ -89,6 +86,17 @@ impl RandomForestClassifier {
     /// Predicts the target value for the given features.
     pub fn predict(&self, features: &[f64]) -> f64 {
         functions::most_frequent(self.inner.predict(features))
+    }
+
+    /// Writes this classifier to the given byte stream.
+    pub fn serialize<W: Write>(&self, writer: W) -> std::io::Result<()> {
+        self.inner.serialize(writer)
+    }
+
+    /// Reads a classifier from the given byte stream.
+    pub fn deserialize<R: Read>(reader: R) -> std::io::Result<Self> {
+        let inner = RandomForest::deserialize(reader)?;
+        Ok(Self { inner })
     }
 }
 
@@ -137,6 +145,14 @@ mod tests {
         assert_eq!(
             classifier.predict(&features[train_len]),
             classifier_parallel.predict(&features[train_len])
+        );
+
+        let mut bytes = Vec::new();
+        classifier.serialize(&mut bytes)?;
+        let classifier_deserialized = RandomForestClassifier::deserialize(&mut &bytes[..])?;
+        assert_eq!(
+            classifier.predict(&features[train_len]),
+            classifier_deserialized.predict(&features[train_len])
         );
 
         Ok(())
