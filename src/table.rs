@@ -1,5 +1,6 @@
 //! Table data which contains features and a target columns.
 use ordered_float::OrderedFloat;
+use rand::seq::SliceRandom;
 use rand::Rng;
 use std::ops::Range;
 use thiserror::Error;
@@ -120,6 +121,34 @@ pub struct Table<'a> {
 }
 
 impl<'a> Table<'a> {
+    /// Returns an iterator over all rows of the table.
+    ///
+    /// The last element of each row is the target value.
+    pub fn rows<'b>(&'b self) -> impl 'b + Iterator<Item = Vec<f64>> {
+        self.row_indices().map(move |i| {
+            (0..self.columns.len())
+                .map(|j| self.columns[j][i])
+                .collect()
+        })
+    }
+
+    /// Splits the table into train and test datasets.
+    pub fn train_test_split<R: Rng + ?Sized>(
+        mut self,
+        rng: &mut R,
+        test_rate: f64,
+    ) -> (Self, Self) {
+        (&mut self.row_index[self.row_range.start..self.row_range.end]).shuffle(rng);
+        let test_num = (self.rows_len() as f64 * test_rate).round() as usize;
+
+        let mut train = self.clone();
+        let mut test = self;
+        test.row_range.end = test.row_range.start + test_num;
+        train.row_range.start = test.row_range.end;
+
+        (train, test)
+    }
+
     pub(crate) fn target<'b>(&'b self) -> impl 'b + Iterator<Item = f64> + Clone {
         self.column(self.columns.len() - 1)
     }
@@ -128,7 +157,8 @@ impl<'a> Table<'a> {
         &'b self,
         column_index: usize,
     ) -> impl 'b + Iterator<Item = f64> + Clone {
-        self.rows().map(move |i| self.columns[column_index][i])
+        self.row_indices()
+            .map(move |i| self.columns[column_index][i])
     }
 
     pub(crate) fn features_len(&self) -> usize {
@@ -143,7 +173,7 @@ impl<'a> Table<'a> {
         self.column_types
     }
 
-    fn rows<'b>(&'b self) -> impl 'b + Iterator<Item = usize> + Clone {
+    fn row_indices<'b>(&'b self) -> impl 'b + Iterator<Item = usize> + Clone {
         self.row_index[self.row_range.start..self.row_range.end]
             .iter()
             .copied()
@@ -194,7 +224,7 @@ impl<'a> Table<'a> {
         // Assumption: `self.columns[column]` has been sorted.
         let column = &self.columns[column_index];
         let categorical = self.column_types[column_index] == ColumnType::Categorical;
-        self.rows()
+        self.row_indices()
             .map(move |i| column[i])
             .enumerate()
             .scan(None, move |prev, (i, x)| {
@@ -277,6 +307,22 @@ mod tests {
                 .err(),
             Some(TableError::NonFiniteTarget)
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn train_test_split_works() -> anyhow::Result<()> {
+        let mut builder = TableBuilder::new();
+        for _ in 0..100 {
+            builder.add_row(&[0.0], 1.0)?;
+        }
+        let table = builder.build()?;
+        assert_eq!(table.rows_len(), 100);
+
+        let (train, test) = table.train_test_split(&mut rand::thread_rng(), 0.25);
+        assert_eq!(train.rows_len(), 75);
+        assert_eq!(test.rows_len(), 25);
 
         Ok(())
     }
