@@ -124,12 +124,37 @@ impl<'a> Table<'a> {
     /// Returns an iterator over all rows of the table.
     ///
     /// The last element of each row is the target value.
-    pub fn rows<'b>(&'b self) -> impl 'b + Iterator<Item = Vec<f64>> {
+    pub fn rows<'b>(&'b self) -> impl 'b + Iterator<Item = Vec<f64>> + Clone {
         self.row_indices().map(move |i| {
             (0..self.columns.len())
                 .map(|j| self.columns[j][i])
                 .collect()
         })
+    }
+
+    /// Removes rows which don't match the given condition from the table.
+    ///
+    /// Note that after calling this method the order of rows isn't preserved.
+    pub fn filter<F>(&mut self, f: F) -> usize
+    where
+        F: Fn(&[f64]) -> bool,
+    {
+        let mut n = 0;
+        let mut i = self.row_range.start;
+        while i < self.row_range.end {
+            let row_i = self.row_index[i];
+            let row = (0..self.columns.len())
+                .map(|j| self.columns[j][row_i])
+                .collect::<Vec<_>>();
+            if f(&row) {
+                i += 1;
+            } else {
+                self.row_index.swap(i, self.row_range.end - 1);
+                self.row_range.end -= 1;
+                n += 1;
+            }
+        }
+        n
     }
 
     /// Splits the table into train and test datasets.
@@ -324,6 +349,21 @@ mod tests {
         assert_eq!(train.rows_len(), 75);
         assert_eq!(test.rows_len(), 25);
 
+        Ok(())
+    }
+
+    #[test]
+    fn filter_works() -> anyhow::Result<()> {
+        let mut builder = TableBuilder::new();
+        for i in 0..100 {
+            builder.add_row(&[0.0], i as f64)?;
+        }
+        let mut table = builder.build()?;
+        assert_eq!(table.rows_len(), 100);
+
+        let removed = table.filter(|row| row[row.len() - 1] < 10.0);
+        assert_eq!(removed, 90);
+        assert_eq!(table.rows_len(), 10);
         Ok(())
     }
 }
