@@ -54,14 +54,14 @@ impl DecisionTree {
 
 #[derive(Debug)]
 pub enum Node {
-    Leaf { value: f64 },
+    Leaf { value: f64, count: u32 },
     Internal { children: Children },
 }
 
 impl Node {
     fn predict(&self, xs: &[f64], columns: &[ColumnType]) -> f64 {
         match self {
-            Self::Leaf { value } => *value,
+            Self::Leaf { value, .. } => *value,
             Self::Internal { children } => {
                 if columns[children.split.column]
                     .is_left(xs[children.split.column], children.split.value)
@@ -76,9 +76,10 @@ impl Node {
 
     fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         match self {
-            Self::Leaf { value } => {
+            Self::Leaf { value, count } => {
                 writer.write_u8(0)?;
                 writer.write_f64::<BigEndian>(*value)?;
+                writer.write_u32::<BigEndian>(*count)?;
             }
             Self::Internal { children } => {
                 writer.write_u8(1)?;
@@ -93,7 +94,8 @@ impl Node {
         match kind {
             0 => {
                 let value = reader.read_f64::<BigEndian>()?;
-                Ok(Self::Leaf { value })
+                let count = reader.read_u32::<BigEndian>()?;
+                Ok(Self::Leaf { value, count })
             }
             1 => {
                 let children = Children::deserialize(reader)?;
@@ -161,8 +163,11 @@ struct NodeBuilder<R, T> {
 impl<R: Rng, T: Criterion> NodeBuilder<R, T> {
     fn build(&mut self, table: &mut Table, depth: usize) -> Node {
         if table.rows_len() < MIN_SAMPLES_SPLIT || depth > MAX_DEPTH {
-            let value = self.average(table.target());
-            return Node::Leaf { value };
+            let (value, count) = self.average(table.target());
+            return Node::Leaf {
+                value,
+                count: count as u32,
+            };
         }
 
         let impurity = self.criterion.calculate(table.target());
@@ -198,8 +203,11 @@ impl<R: Rng, T: Criterion> NodeBuilder<R, T> {
             let children = self.build_children(table, split, depth);
             Node::Internal { children }
         } else {
-            let value = self.average(table.target());
-            Node::Leaf { value }
+            let (value, count) = self.average(table.target());
+            Node::Leaf {
+                value,
+                count: count as u32,
+            }
         }
     }
 
@@ -222,7 +230,7 @@ impl<R: Rng, T: Criterion> NodeBuilder<R, T> {
         Children { split, left, right }
     }
 
-    fn average(&self, ys: impl Iterator<Item = f64>) -> f64 {
+    fn average(&self, ys: impl Iterator<Item = f64>) -> (f64, usize) {
         if self.is_regression {
             functions::mean(ys)
         } else {
