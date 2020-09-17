@@ -84,6 +84,14 @@ impl RandomForestRegressor {
         functions::mean(self.inner.predict(features))
     }
 
+    /// Returns an iterator that iterates over a target value predicted by each decision tree.
+    pub fn predict_individuals<'a>(
+        &'a self,
+        features: &'a [f64],
+    ) -> impl 'a + Iterator<Item = f64> {
+        self.inner.predict(features)
+    }
+
     /// Writes this regressor to the given byte stream.
     pub fn serialize<W: Write>(&self, writer: W) -> std::io::Result<()> {
         self.inner.serialize(writer)
