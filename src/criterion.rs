@@ -22,7 +22,7 @@ impl Criterion for Mse {
         T: Iterator<Item = f64> + Clone,
     {
         let n = ys.clone().count() as f64;
-        let m = functions::mean(ys.clone()).0;
+        let m = functions::mean(ys.clone());
         ys.map(|x| (x - m).powi(2)).sum::<f64>() / n
     }
 }

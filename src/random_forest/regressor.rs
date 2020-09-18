@@ -81,7 +81,7 @@ impl RandomForestRegressor {
 
     /// Predicts the target value for the given features.
     pub fn predict(&self, features: &[f64]) -> f64 {
-        functions::mean(self.inner.predict(features)).0
+        functions::mean(self.inner.predict(features))
     }
 
     /// Returns an iterator that iterates over a target value predicted by each decision tree.

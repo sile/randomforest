@@ -1,7 +1,7 @@
 use ordered_float::OrderedFloat;
 use std::collections::HashMap;
 
-pub fn mean(xs: impl Iterator<Item = f64>) -> (f64, usize) {
+pub fn mean(xs: impl Iterator<Item = f64>) -> f64 {
     let mut count = 0;
     let mut total = 0.0;
     for x in xs {
@@ -9,17 +9,16 @@ pub fn mean(xs: impl Iterator<Item = f64>) -> (f64, usize) {
         total += x;
     }
     assert_ne!(count, 0);
-    (total / count as f64, count)
+    total / count as f64
 }
 
-pub fn most_frequent(xs: impl Iterator<Item = f64>) -> (f64, usize) {
-    let (histogram, n) = histogram(xs);
-    let f = histogram
+pub fn most_frequent(xs: impl Iterator<Item = f64>) -> f64 {
+    let (histogram, _) = histogram(xs);
+    histogram
         .into_iter()
         .max_by_key(|t| t.1)
         .map(|t| (t.0).0)
-        .expect("unreachable");
-    (f, n)
+        .expect("unreachable")
 }
 
 pub fn histogram(xs: impl Iterator<Item = f64>) -> (HashMap<OrderedFloat<f64>, usize>, usize) {

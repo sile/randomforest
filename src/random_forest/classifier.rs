@@ -85,7 +85,7 @@ impl RandomForestClassifier {
 
     /// Predicts the target value for the given features.
     pub fn predict(&self, features: &[f64]) -> f64 {
-        functions::most_frequent(self.inner.predict(features)).0
+        functions::most_frequent(self.inner.predict(features))
     }
 
     /// Returns an iterator that iterates over a target value predicted by each decision tree.
