@@ -129,15 +129,6 @@ impl RandomForest {
             .map(move |tree| tree.predict(xs, &self.columns))
     }
 
-    pub fn marginal_predict<'a>(
-        &'a self,
-        xs: &'a [(usize, f64)],
-    ) -> impl 'a + Iterator<Item = f64> {
-        self.forest
-            .iter()
-            .map(move |tree| tree.marginal_predict(xs, &self.columns))
-    }
-
     pub fn serialize<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
         writer.write_u16::<BigEndian>(self.columns.len() as u16)?;
         for &c in &self.columns {

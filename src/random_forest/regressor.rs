@@ -81,7 +81,7 @@ impl RandomForestRegressor {
 
     /// Predicts the target value for the given features.
     pub fn predict(&self, features: &[f64]) -> f64 {
-        functions::mean(self.predict_individuals(features)).0
+        functions::mean(self.inner.predict(features)).0
     }
 
     /// Returns an iterator that iterates over a target value predicted by each decision tree.
@@ -90,19 +90,6 @@ impl RandomForestRegressor {
         features: &'a [f64],
     ) -> impl 'a + Iterator<Item = f64> {
         self.inner.predict(features)
-    }
-
-    /// Predicts the marginal target value for the partially given features.
-    pub fn marginal_predict(&self, features: &[(usize, f64)]) -> f64 {
-        functions::mean(self.marginal_predict_individuals(features)).0
-    }
-
-    /// Returns an iterator that iterates over a marginal target value predicted by each decision tree.
-    pub fn marginal_predict_individuals<'a>(
-        &'a self,
-        features: &'a [(usize, f64)],
-    ) -> impl 'a + Iterator<Item = f64> {
-        self.inner.marginal_predict(features)
     }
 
     /// Writes this regressor to the given byte stream.
@@ -160,17 +147,6 @@ mod tests {
             regressor.predict(&features[train_len + 1]),
             43.50333333333333
         );
-        assert_eq!(
-            regressor.marginal_predict(
-                &features[train_len]
-                    .iter()
-                    .copied()
-                    .enumerate()
-                    .collect::<Vec<_>>()
-            ),
-            41.9785
-        );
-        assert_eq!(regressor.marginal_predict(&[(1, 1.0)]), 42.57179112554113);
 
         let regressor_parallel = RandomForestRegressorOptions::new()
             .seed(0)

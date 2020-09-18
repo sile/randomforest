@@ -42,30 +42,6 @@ impl DecisionTree {
         self.root.predict(xs, columns)
     }
 
-    pub fn marginal_predict(&self, fixed_features: &[(usize, f64)], columns: &[ColumnType]) -> f64 {
-        let mut features = vec![None; columns.len()];
-        for &(i, v) in fixed_features {
-            features[i] = Some(v);
-        }
-
-        let (sum, num) = self.fold(
-            |split| {
-                if let Some(v) = features[split.column] {
-                    if columns[split.column].is_left(v, split.value) {
-                        (true, false)
-                    } else {
-                        (false, true)
-                    }
-                } else {
-                    (true, true)
-                }
-            },
-            (0.0, 0),
-            |(sum, num), value, count| (sum + (value * count as f64), num + count),
-        );
-        sum / num as f64
-    }
-
     pub fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         self.root.serialize(writer)
     }
@@ -73,37 +49,6 @@ impl DecisionTree {
     pub fn deserialize<R: Read>(reader: &mut R) -> std::io::Result<Self> {
         let root = Node::deserialize(reader)?;
         Ok(Self { root })
-    }
-
-    fn fold<InternalF, LeafT, LeafF>(
-        &self,
-        mut do_traverse: InternalF,
-        leaf_init: LeafT,
-        mut leaf_f: LeafF,
-    ) -> LeafT
-    where
-        InternalF: FnMut(&SplitPoint) -> (bool, bool),
-        LeafF: FnMut(LeafT, f64, u32) -> LeafT,
-    {
-        let mut leaf_acc = leaf_init;
-        let mut stack = vec![&self.root];
-        while let Some(node) = stack.pop() {
-            match node {
-                Node::Leaf { value, count } => {
-                    leaf_acc = leaf_f(leaf_acc, *value, *count);
-                }
-                Node::Internal { children } => {
-                    let (go_left, go_right) = do_traverse(&children.split);
-                    if go_left {
-                        stack.push(&children.left);
-                    }
-                    if go_right {
-                        stack.push(&children.right);
-                    }
-                }
-            }
-        }
-        leaf_acc
     }
 }
 
