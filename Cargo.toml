@@ -1,19 +1,13 @@
 [package]
 name = "randomforest"
 version = "0.1.6"
-authors = ["Takeru Ohta <phjgt308@gmail.com>"]
-edition = "2018"
+edition = "2024"
 description = "Random forest regressor and classifier"
 homepage = "https://github.com/sile/randomforest"
 repository = "https://github.com/sile/randomforest"
 readme = "README.md"
 categories = ["science"]
 license = "MIT"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[badges]
-coveralls = {repository = "sile/randomforest"}
 
 [dependencies]
 byteorder = "1"
