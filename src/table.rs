@@ -87,7 +87,7 @@ impl TableBuilder {
     }
 
     /// Builds a `Table` instance.
-    pub fn build(&self) -> Result<Table, TableError> {
+    pub fn build(&self) -> Result<Table<'_>, TableError> {
         if self.columns.is_empty() || self.columns[0].is_empty() {
             return Err(TableError::EmptyTable);
         }
