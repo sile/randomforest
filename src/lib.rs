@@ -7,7 +7,7 @@
 //! use randomforest::RandomForestRegressorOptions;
 //! use randomforest::table::TableBuilder;
 //!
-//! # fn main() -> anyhow::Result<()> {
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let features = [
 //!     &[0.0, 2.0, 1.0, 0.0][..],
 //!     &[0.0, 2.0, 1.0, 1.0][..],
@@ -35,7 +35,7 @@
 //! let regressor = RandomForestRegressorOptions::new()
 //!     .seed(0)
 //!     .fit(Mse, table);
-//! assert_eq!(regressor.predict(&[1.0, 2.0, 0.0, 0.0]), 41.9785);
+//! assert_eq!(regressor.predict(&[1.0, 2.0, 0.0, 0.0]), 42.16872222222222);
 //! # Ok(())
 //! # }
 //! ```

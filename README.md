@@ -45,5 +45,5 @@ let table = table_builder.build()?;
 let regressor = RandomForestRegressorOptions::new()
     .seed(0)
     .fit(Mse, table);
-assert_eq!(regressor.predict(&[1.0, 2.0, 0.0, 0.0]), 41.9785);
+assert_eq!(regressor.predict(&[1.0, 2.0, 0.0, 0.0]), 42.16872222222222);
 ```

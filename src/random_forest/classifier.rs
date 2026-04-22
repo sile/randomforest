@@ -115,7 +115,7 @@ mod tests {
     use crate::table::{ColumnType, TableBuilder};
 
     #[test]
-    fn classification_works() -> Result<(), anyhow::Error> {
+    fn classification_works() -> Result<(), Box<dyn std::error::Error>> {
         let features = [
             &[0.0, 1.0, 0.0][..],
             &[1.0, 1.0, 1.0][..],

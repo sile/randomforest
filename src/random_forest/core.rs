@@ -1,9 +1,8 @@
 use crate::criterion::Criterion;
 use crate::decision_tree::{DecisionTree, DecisionTreeOptions};
 use crate::table::{ColumnType, Table};
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{Rng, RngExt, SeedableRng};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::io::{Read, Write};
 use std::num::NonZeroUsize;
@@ -84,7 +83,7 @@ impl RandomForestOptions {
     }
 
     fn tree_rngs(&self) -> impl Iterator<Item = StdRng> {
-        let seed_u64 = self.seed.unwrap_or_else(|| rand::thread_rng().r#gen());
+        let seed_u64 = self.seed.unwrap_or_else(|| rand::rng().random());
         let mut seed = [0u8; 32];
         seed[0..8].copy_from_slice(&seed_u64.to_be_bytes()[..]);
         let mut rng = StdRng::from_seed(seed);
@@ -130,12 +129,12 @@ impl RandomForest {
     }
 
     pub fn serialize<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
-        writer.write_u16::<BigEndian>(self.columns.len() as u16)?;
+        writer.write_all(&(self.columns.len() as u16).to_be_bytes())?;
         for &c in &self.columns {
-            writer.write_u8(c as u8)?;
+            writer.write_all(&[c as u8])?;
         }
 
-        writer.write_u16::<BigEndian>(self.forest.len() as u16)?;
+        writer.write_all(&(self.forest.len() as u16).to_be_bytes())?;
         for tree in &self.forest {
             tree.serialize(&mut writer)?;
         }
@@ -144,19 +143,27 @@ impl RandomForest {
     }
 
     pub fn deserialize<R: Read>(mut reader: R) -> std::io::Result<Self> {
-        let columns_len = reader.read_u16::<BigEndian>()?;
+        let mut buf = [0u8; 2];
+        reader.read_exact(&mut buf)?;
+        let columns_len = u16::from_be_bytes(buf);
         let columns = (0..columns_len)
-            .map(|_| match reader.read_u8()? {
-                0 => Ok(ColumnType::Numerical),
-                1 => Ok(ColumnType::Categorical),
-                v => Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("unknown column type {}", v),
-                )),
+            .map(|_| {
+                let mut b = [0u8; 1];
+                reader.read_exact(&mut b)?;
+                match b[0] {
+                    0 => Ok(ColumnType::Numerical),
+                    1 => Ok(ColumnType::Categorical),
+                    v => Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("unknown column type {}", v),
+                    )),
+                }
             })
             .collect::<std::io::Result<Vec<_>>>()?;
 
-        let forest_len = reader.read_u16::<BigEndian>()?;
+        let mut buf = [0u8; 2];
+        reader.read_exact(&mut buf)?;
+        let forest_len = u16::from_be_bytes(buf);
         let forest = (0..forest_len)
             .map(|_| DecisionTree::deserialize(&mut reader))
             .collect::<std::io::Result<Vec<_>>>()?;

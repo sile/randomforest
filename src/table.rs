@@ -1,9 +1,7 @@
 //! Table data which contains features and a target columns.
-use ordered_float::OrderedFloat;
-use rand::Rng;
 use rand::seq::SliceRandom;
+use rand::{Rng, RngExt};
 use std::ops::Range;
-use thiserror::Error;
 
 /// Column type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -207,7 +205,7 @@ impl<'a> Table<'a> {
     pub(crate) fn sort_rows_by_column(&mut self, column: usize) {
         let columns = &self.columns;
         self.row_index[self.row_range.start..self.row_range.end]
-            .sort_by_key(|&x| OrderedFloat(columns[column][x]))
+            .sort_by(|&a, &b| columns[column][a].total_cmp(&columns[column][b]))
     }
 
     pub(crate) fn sort_rows_by_categorical_column(&mut self, column: usize, value: f64) {
@@ -228,7 +226,7 @@ impl<'a> Table<'a> {
     ) -> Self {
         let samples = std::cmp::min(max_samples, self.rows_len());
         let row_index = (0..samples)
-            .map(|_| self.row_index[rng.gen_range(self.row_range.start, self.row_range.end)])
+            .map(|_| self.row_index[rng.random_range(self.row_range.start..self.row_range.end)])
             .collect::<Vec<_>>();
         let row_range = Range {
             start: 0,
@@ -293,27 +291,38 @@ impl<'a> Table<'a> {
 }
 
 /// Error kinds which could be returned during buidling a table.
-#[derive(Debug, Error, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TableError {
     /// Table must have at least one column and one row.
-    #[error("table must have at least one column and one row")]
     EmptyTable,
 
     /// Some of rows have a different column count from others.
-    #[error("some of rows have a different column count from others")]
     ColumnSizeMismatch,
 
     /// Target column contains non finite numbers.
-    #[error("target column contains non finite numbers")]
     NonFiniteTarget,
 }
+
+impl std::fmt::Display for TableError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EmptyTable => write!(f, "table must have at least one column and one row"),
+            Self::ColumnSizeMismatch => {
+                write!(f, "some of rows have a different column count from others")
+            }
+            Self::NonFiniteTarget => write!(f, "target column contains non finite numbers"),
+        }
+    }
+}
+
+impl std::error::Error for TableError {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn error_check_works() -> anyhow::Result<()> {
+    fn error_check_works() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(
             TableBuilder::default().build().err(),
             Some(TableError::EmptyTable)
@@ -337,7 +346,7 @@ mod tests {
     }
 
     #[test]
-    fn train_test_split_works() -> anyhow::Result<()> {
+    fn train_test_split_works() -> Result<(), Box<dyn std::error::Error>> {
         let mut builder = TableBuilder::new();
         for _ in 0..100 {
             builder.add_row(&[0.0], 1.0)?;
@@ -345,7 +354,7 @@ mod tests {
         let table = builder.build()?;
         assert_eq!(table.rows_len(), 100);
 
-        let (train, test) = table.train_test_split(&mut rand::thread_rng(), 0.25);
+        let (train, test) = table.train_test_split(&mut rand::rng(), 0.25);
         assert_eq!(train.rows_len(), 75);
         assert_eq!(test.rows_len(), 25);
 
@@ -353,7 +362,7 @@ mod tests {
     }
 
     #[test]
-    fn filter_works() -> anyhow::Result<()> {
+    fn filter_works() -> Result<(), Box<dyn std::error::Error>> {
         let mut builder = TableBuilder::new();
         for i in 0..100 {
             builder.add_row(&[0.0], i as f64)?;

@@ -1,9 +1,8 @@
 use crate::criterion::Criterion;
 use crate::functions;
 use crate::table::{ColumnType, Table};
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use rand::Rng;
-use rand::seq::SliceRandom as _;
+use rand::seq::IndexedRandom as _;
 use std::io::{Read, Write};
 
 const MIN_SAMPLES_SPLIT: usize = 2;
@@ -77,11 +76,11 @@ impl Node {
     fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         match self {
             Self::Leaf { value } => {
-                writer.write_u8(0)?;
-                writer.write_f64::<BigEndian>(*value)?;
+                writer.write_all(&[0])?;
+                writer.write_all(&value.to_be_bytes())?;
             }
             Self::Internal { children } => {
-                writer.write_u8(1)?;
+                writer.write_all(&[1])?;
                 children.serialize(writer)?;
             }
         }
@@ -89,10 +88,13 @@ impl Node {
     }
 
     fn deserialize<R: Read>(reader: &mut R) -> std::io::Result<Self> {
-        let kind = reader.read_u8()?;
-        match kind {
+        let mut kind = [0u8; 1];
+        reader.read_exact(&mut kind)?;
+        match kind[0] {
             0 => {
-                let value = reader.read_f64::<BigEndian>()?;
+                let mut buf = [0u8; 8];
+                reader.read_exact(&mut buf)?;
+                let value = f64::from_be_bytes(buf);
                 Ok(Self::Leaf { value })
             }
             1 => {
@@ -138,14 +140,18 @@ pub struct SplitPoint {
 
 impl SplitPoint {
     fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        writer.write_u16::<BigEndian>(self.column as u16)?;
-        writer.write_f64::<BigEndian>(self.value)?;
+        writer.write_all(&(self.column as u16).to_be_bytes())?;
+        writer.write_all(&self.value.to_be_bytes())?;
         Ok(())
     }
 
     fn deserialize<R: Read>(reader: &mut R) -> std::io::Result<Self> {
-        let column = reader.read_u16::<BigEndian>()? as usize;
-        let value = reader.read_f64::<BigEndian>()?;
+        let mut buf = [0u8; 2];
+        reader.read_exact(&mut buf)?;
+        let column = u16::from_be_bytes(buf) as usize;
+        let mut buf = [0u8; 8];
+        reader.read_exact(&mut buf)?;
+        let value = f64::from_be_bytes(buf);
         Ok(Self { column, value })
     }
 }
@@ -173,7 +179,7 @@ impl<R: Rng, T: Criterion> NodeBuilder<R, T> {
         let mut best_split: Option<SplitPoint> = None;
         let mut best_informatin_gain = f64::MIN;
         let max_features = std::cmp::min(valid_columns.len(), self.max_features);
-        for &column in valid_columns.choose_multiple(&mut self.rng, max_features) {
+        for &column in valid_columns.sample(&mut self.rng, max_features) {
             table.sort_rows_by_column(column);
             for (left_row, value) in table.split_points(column) {
                 let rows_l = table.target().take(left_row.end).skip(left_row.start);
@@ -239,7 +245,7 @@ mod tests {
     use rand;
 
     #[test]
-    fn regression_works() -> Result<(), anyhow::Error> {
+    fn regression_works() -> Result<(), Box<dyn std::error::Error>> {
         let features = [
             &[0.0, 2.0, 1.0, 0.0][..],
             &[0.0, 2.0, 1.0, 1.0][..],
@@ -273,7 +279,7 @@ mod tests {
             ColumnType::Numerical,
             ColumnType::Numerical,
         ];
-        let regressor = DecisionTree::fit(&mut rand::thread_rng(), Mse, table, Default::default());
+        let regressor = DecisionTree::fit(&mut rand::rng(), Mse, table, Default::default());
         assert_eq!(regressor.predict(&features[train_len], &columns), 46.0);
         assert_eq!(regressor.predict(&features[train_len + 1], &columns), 52.0);
 
