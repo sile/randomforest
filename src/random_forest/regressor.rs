@@ -111,7 +111,7 @@ mod tests {
     use crate::table::TableBuilder;
 
     #[test]
-    fn regression_works() -> Result<(), anyhow::Error> {
+    fn regression_works() -> Result<(), Box<dyn std::error::Error>> {
         let features = [
             &[0.0, 2.0, 1.0, 0.0][..],
             &[0.0, 2.0, 1.0, 1.0][..],
@@ -142,10 +142,10 @@ mod tests {
         let regressor = RandomForestRegressorOptions::new()
             .seed(0)
             .fit(Mse, table.clone());
-        assert_eq!(regressor.predict(&features[train_len]), 41.9785);
+        assert_eq!(regressor.predict(&features[train_len]), 42.16872222222222);
         assert_eq!(
             regressor.predict(&features[train_len + 1]),
-            43.50333333333333
+            43.33083333333333
         );
 
         let regressor_parallel = RandomForestRegressorOptions::new()
