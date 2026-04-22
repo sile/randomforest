@@ -43,8 +43,8 @@ impl Criterion for Gini {
     {
         let (histogram, n) = functions::histogram(ys);
         1.0 - histogram
-            .into_iter()
-            .map(|(_, count)| (count as f64 / n as f64).powi(2))
+            .into_values()
+            .map(|count| (count as f64 / n as f64).powi(2))
             .sum::<f64>()
     }
 }
@@ -62,8 +62,8 @@ impl Criterion for Entropy {
     {
         let (histogram, n) = functions::histogram(ys);
         histogram
-            .into_iter()
-            .map(|(_, count)| {
+            .into_values()
+            .map(|count| {
                 let p = count as f64 / n as f64;
                 -p * p.log2()
             })

@@ -86,7 +86,7 @@ impl RandomForestOptions {
     fn tree_rngs(&self) -> impl Iterator<Item = StdRng> {
         let seed_u64 = self.seed.unwrap_or_else(|| rand::thread_rng().r#gen());
         let mut seed = [0u8; 32];
-        (&mut seed[0..8]).copy_from_slice(&seed_u64.to_be_bytes()[..]);
+        seed[0..8].copy_from_slice(&seed_u64.to_be_bytes()[..]);
         let mut rng = StdRng::from_seed(seed);
         (0..self.trees.get()).map(move |_| {
             let mut seed = [0u8; 32];

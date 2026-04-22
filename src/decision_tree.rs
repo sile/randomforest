@@ -2,8 +2,8 @@ use crate::criterion::Criterion;
 use crate::functions;
 use crate::table::{ColumnType, Table};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use rand::seq::SliceRandom as _;
 use rand::Rng;
+use rand::seq::SliceRandom as _;
 use std::io::{Read, Write};
 
 const MIN_SAMPLES_SPLIT: usize = 2;
@@ -171,7 +171,7 @@ impl<R: Rng, T: Criterion> NodeBuilder<R, T> {
             .collect::<Vec<_>>();
 
         let mut best_split: Option<SplitPoint> = None;
-        let mut best_informatin_gain = std::f64::MIN;
+        let mut best_informatin_gain = f64::MIN;
         let max_features = std::cmp::min(valid_columns.len(), self.max_features);
         for &column in valid_columns.choose_multiple(&mut self.rng, max_features) {
             table.sort_rows_by_column(column);

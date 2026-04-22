@@ -1,7 +1,7 @@
 //! Table data which contains features and a target columns.
 use ordered_float::OrderedFloat;
-use rand::seq::SliceRandom;
 use rand::Rng;
+use rand::seq::SliceRandom;
 use std::ops::Range;
 use thiserror::Error;
 
@@ -20,7 +20,7 @@ impl ColumnType {
     pub(crate) fn is_left(self, x: f64, split_value: f64) -> bool {
         match self {
             Self::Numerical => x <= split_value,
-            Self::Categorical => (x - split_value).abs() < std::f64::EPSILON,
+            Self::Categorical => (x - split_value).abs() < f64::EPSILON,
         }
     }
 }
@@ -163,7 +163,7 @@ impl<'a> Table<'a> {
         rng: &mut R,
         test_rate: f64,
     ) -> (Self, Self) {
-        (&mut self.row_index[self.row_range.start..self.row_range.end]).shuffle(rng);
+        self.row_index[self.row_range.start..self.row_range.end].shuffle(rng);
         let test_num = (self.rows_len() as f64 * test_rate).round() as usize;
 
         let mut train = self.clone();
@@ -206,14 +206,14 @@ impl<'a> Table<'a> {
 
     pub(crate) fn sort_rows_by_column(&mut self, column: usize) {
         let columns = &self.columns;
-        (&mut self.row_index[self.row_range.start..self.row_range.end])
+        self.row_index[self.row_range.start..self.row_range.end]
             .sort_by_key(|&x| OrderedFloat(columns[column][x]))
     }
 
     pub(crate) fn sort_rows_by_categorical_column(&mut self, column: usize, value: f64) {
         let columns = &self.columns;
-        (&mut self.row_index[self.row_range.start..self.row_range.end]).sort_by_key(|&x| {
-            if (columns[column][x] - value).abs() < std::f64::EPSILON {
+        self.row_index[self.row_range.start..self.row_range.end].sort_by_key(|&x| {
+            if (columns[column][x] - value).abs() < f64::EPSILON {
                 0
             } else {
                 1
@@ -256,7 +256,7 @@ impl<'a> Table<'a> {
                 if prev.is_none() {
                     *prev = Some((x, i));
                     Some(None)
-                } else if prev.map_or(false, |(y, _)| (y - x).abs() > std::f64::EPSILON) {
+                } else if prev.is_some_and(|(y, _)| (y - x).abs() > f64::EPSILON) {
                     let (y, j) = prev.expect("never fails");
                     *prev = Some((x, i));
                     if categorical {
@@ -270,7 +270,7 @@ impl<'a> Table<'a> {
                     Some(None)
                 }
             })
-            .filter_map(|t| t)
+            .flatten()
     }
 
     pub(crate) fn with_split<F, T>(&mut self, row: usize, mut f: F) -> (T, T)
